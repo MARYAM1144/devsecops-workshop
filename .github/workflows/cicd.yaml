@@ -26,9 +26,11 @@ jobs:
     - name: Build Docker Image
       run: |
         VERSION=${{ steps.version.outputs.version }}
+        # Convert owner to lowercase
+        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         docker build --no-cache \
-          -t ghcr.io/${{ github.repository_owner }}/devsecops-app:$VERSION \
-          -t ghcr.io/${{ github.repository_owner }}/devsecops-app:latest \
+          -t ghcr.io/$OWNER/devsecops-app:$VERSION \
+          -t ghcr.io/$OWNER/devsecops-app:latest \
           -f app/Dockerfile app/
 
     - name: Scan Image with Trivy
@@ -45,8 +47,9 @@ jobs:
     - name: Push Images
       run: |
         VERSION=${{ steps.version.outputs.version }}
-        docker push ghcr.io/${{ github.repository_owner }}/devsecops-app:$VERSION
-        docker push ghcr.io/${{ github.repository_owner }}/devsecops-app:latest
+        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        docker push ghcr.io/$OWNER/devsecops-app:$VERSION
+        docker push ghcr.io/$OWNER/devsecops-app:latest
 
     - name: Create GHCR Secret
       run: |
@@ -63,7 +66,8 @@ jobs:
     - name: Patch Deployment With Version
       run: |
         VERSION=${{ steps.version.outputs.version }}
-        kubectl set image deployment/devsecops-app web=ghcr.io/${{ github.repository_owner }}/devsecops-app:$VERSION
+        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        kubectl set image deployment/devsecops-app web=ghcr.io/$OWNER/devsecops-app:$VERSION
 
     - name: Wait for Rollout
       run: kubectl rollout status deployment/devsecops-app
