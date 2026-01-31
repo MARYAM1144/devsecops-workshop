@@ -1,17 +1,14 @@
 name: DevSecOps CI/CD
-
 on:
   push:
     branches: [ main ]
-
 jobs:
   pipeline:
     runs-on: self-hosted
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Generate Semantic Version
       id: version
       uses: paulhatch/semantic-version@v5.4.0
@@ -20,10 +17,10 @@ jobs:
         format: "${major}.${minor}.${patch}"
         major_pattern: "BREAKING CHANGE"
         minor_pattern: "feat"
-
+        
     - name: Print version
       run: echo "VERSION=${{ steps.version.outputs.version }}"
-
+      
     - name: Build Docker Image
       run: |
         VERSION=${{ steps.version.outputs.version }}
@@ -32,26 +29,26 @@ jobs:
           -t ghcr.io/$OWNER/devsecops-app:$VERSION \
           -t ghcr.io/$OWNER/devsecops-app:latest \
           -f app/Dockerfile app/
-
+          
     - name: Login to GHCR
       run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
+      
     - name: Scan Image with Trivy
-      uses: aquasecurity/trivy-action@v0.33.1
+      uses: aquasecurity/trivy-action@0.33.1  # Changed: removed 'v' prefix
       with:
         image-ref: ghcr.io/${{ github.repository_owner }}/devsecops-app:latest
         format: "table"
         severity: "CRITICAL,HIGH"
         ignore-unfixed: true
         scan-type: image
-
+        
     - name: Push Images
       run: |
         VERSION=${{ steps.version.outputs.version }}
         OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         docker push ghcr.io/$OWNER/devsecops-app:$VERSION
         docker push ghcr.io/$OWNER/devsecops-app:latest
-
+        
     - name: Create GHCR Secret
       run: |
         kubectl delete secret ghcr-secret --ignore-not-found=true
@@ -60,15 +57,15 @@ jobs:
           --docker-username=${{ github.actor }} \
           --docker-password=${{ secrets.GHCR_PAT }} \
           --docker-email=dummy@example.com
-
+          
     - name: Apply Manifests
       run: kubectl apply -f k8s/
-
+      
     - name: Patch Deployment With Version
       run: |
         VERSION=${{ steps.version.outputs.version }}
         OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         kubectl set image deployment/devsecops-app web=ghcr.io/$OWNER/devsecops-app:$VERSION
-
+        
     - name: Wait for Rollout
       run: kubectl rollout status deployment/devsecops-app
