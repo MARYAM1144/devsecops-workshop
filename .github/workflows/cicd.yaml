@@ -9,7 +9,8 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
     - name: Generate Semantic Version
       id: version
@@ -32,21 +33,17 @@ jobs:
           -t ghcr.io/$OWNER/devsecops-app:latest \
           -f app/Dockerfile app/
 
+    - name: Scan Image with Trivy
+      uses: aquasecurity/trivy-action@v0.20.0
+      with:
+        image-ref: ghcr.io/${{ github.repository_owner }}/devsecops-app:latest
+        format: "table"
+        severity: CRITICAL,HIGH
+        ignore-unfixed: true
+        scan-type: image
+
     - name: Login to GHCR
       run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-    # ✅ Trivy scan with local cache
-    - name: Scan Image with Trivy
-      run: |
-        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-        mkdir -p ~/.cache/trivy
-        docker pull ghcr.io/$OWNER/devsecops-app:latest
-        docker run --rm -v ~/.cache/trivy:/root/.cache/trivy aquasecurity/trivy:0.51.1 image \
-          --format table \
-          --exit-code 0 \
-          --ignore-unfixed \
-          --vuln-type os,library \
-          ghcr.io/$OWNER/devsecops-app:latest
 
     - name: Push Images
       run: |
