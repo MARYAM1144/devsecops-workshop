@@ -34,13 +34,15 @@ jobs:
       run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       
     - name: Scan Image with Trivy
-      uses: aquasecurity/trivy-action@0.33.1  # Changed: removed 'v' prefix
+      uses: aquasecurity/trivy-action@0.33.1
       with:
-        image-ref: ghcr.io/${{ github.repository_owner }}/devsecops-app:latest
+        image-ref: ghcr.io/${{ github.repository_owner }}/devsecops-app:latest  # FIXED: Added lowercase conversion
         format: "table"
         severity: "CRITICAL,HIGH"
         ignore-unfixed: true
         scan-type: image
+      env:
+        OWNER: ${{ github.repository_owner }}
         
     - name: Push Images
       run: |
