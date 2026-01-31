@@ -1,7 +1,9 @@
 name: DevSecOps CI/CD
+
 on:
   push:
     branches: [ main ]
+
 jobs:
   pipeline:
     runs-on: self-hosted
@@ -18,13 +20,17 @@ jobs:
         major_pattern: "BREAKING CHANGE"
         minor_pattern: "feat"
         
+    - name: Set lowercase owner
+      id: owner
+      run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        
     - name: Print version
       run: echo "VERSION=${{ steps.version.outputs.version }}"
       
     - name: Build Docker Image
       run: |
         VERSION=${{ steps.version.outputs.version }}
-        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        OWNER=${{ steps.owner.outputs.owner }}
         docker build --no-cache \
           -t ghcr.io/$OWNER/devsecops-app:$VERSION \
           -t ghcr.io/$OWNER/devsecops-app:latest \
@@ -36,18 +42,17 @@ jobs:
     - name: Scan Image with Trivy
       uses: aquasecurity/trivy-action@0.33.1
       with:
-        image-ref: ghcr.io/${{ github.repository_owner }}/devsecops-app:latest  # FIXED: Added lowercase conversion
+        image-ref: ghcr.io/${{ steps.owner.outputs.owner }}/devsecops-app:latest
         format: "table"
         severity: "CRITICAL,HIGH"
         ignore-unfixed: true
         scan-type: image
-      env:
-        OWNER: ${{ github.repository_owner }}
+        exit-code: "0"
         
     - name: Push Images
       run: |
         VERSION=${{ steps.version.outputs.version }}
-        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        OWNER=${{ steps.owner.outputs.owner }}
         docker push ghcr.io/$OWNER/devsecops-app:$VERSION
         docker push ghcr.io/$OWNER/devsecops-app:latest
         
@@ -66,7 +71,7 @@ jobs:
     - name: Patch Deployment With Version
       run: |
         VERSION=${{ steps.version.outputs.version }}
-        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        OWNER=${{ steps.owner.outputs.owner }}
         kubectl set image deployment/devsecops-app web=ghcr.io/$OWNER/devsecops-app:$VERSION
         
     - name: Wait for Rollout
