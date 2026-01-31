@@ -16,7 +16,7 @@ jobs:
       uses: paulhatch/semantic-version@v5.4.0
       with:
         tag_prefix: "v"
-        format: "${major}.${minor}.${patch}"
+        version_format: "${major}.${minor}.${patch}"  # corrected input name
         major_pattern: "BREAKING CHANGE"
         minor_pattern: "feat"
 
@@ -26,6 +26,7 @@ jobs:
     - name: Build Docker Image
       run: |
         VERSION=${{ steps.version.outputs.version }}
+        # Convert owner to lowercase once
         OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         docker build --no-cache \
           -t ghcr.io/$OWNER/devsecops-app:$VERSION \
@@ -35,8 +36,10 @@ jobs:
     - name: Scan Image with Trivy
       run: |
         OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        # Pull latest app image
         docker pull ghcr.io/$OWNER/devsecops-app:latest
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasecurity/trivy:0.51.1 \
+        # Run Trivy scanner
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/aquasecurity/trivy:0.51.1 \
           image --exit-code 0 --severity CRITICAL,HIGH ghcr.io/$OWNER/devsecops-app:latest
 
     - name: Login to GHCR
